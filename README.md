@@ -1,4 +1,16 @@
-# X402 Seller Middleware for Go
+# X402 ## Features
+
+- 🔐 Intercepts requests and validates payment tokens
+- 💰 Returns 402 Payment Required for unauthorized requests
+- ⚙️ Configurable payment endpoints and pricing
+- 🛣️ Supports exempt paths for public resources
+- 🎫 Multiple authentication methods (Bearer, Token, custom headers)
+- 🔧 Pluggable payment verifiers (HTTP, Static, JWT, Custom)
+- 🚀 Gateway mode for protecting any backend service
+- 🌐 Edge-compatible for CDN deployments (Cloudflare, Vercel)
+- 📊 **Usage Metering & Analytics** - Track requests, costs, revenue per endpoint
+- 🎟️ **Session Payments** - Pay once, use many times (time or request-based)
+- 🤖 **AI Agent Optimized** - Budget awareness, batch pricing, auto-retry hintsdleware for Go
 
 A production-ready Go middleware and gateway implementation for HTTP 402 Payment Required protocol.
 
@@ -30,6 +42,9 @@ x402-seller-middleware/
 │       ├── middleware.go # Core middleware
 │       ├── middleware_test.go
 │       ├── verifier.go   # Payment verification utilities
+│       ├── metering.go   # Usage metering & analytics
+│       ├── session.go    # Session & subscription payments
+│       ├── agent.go      # AI agent optimizations
 │       └── edge/         # Edge-compatible handlers
 ├── examples/
 │   └── premium-api/      # Direct middleware integration example
@@ -252,6 +267,156 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md) for detailed integration guides:
 - Vercel Edge Middleware
 - Docker deployment
 - Nginx configuration
+
+## USP Features (Differentiated from Coinbase x402)
+
+### 📊 Usage Metering & Analytics
+
+Track API usage in real-time with built-in analytics:
+
+```go
+// Create metering store
+store := x402.NewInMemoryMeteringStore(100000, "USDC")
+
+// Wrap your handler with metering
+handler := x402.MeteringMiddleware(yourHandler, x402.MeteringConfig{
+    Store:           store,
+    Currency:        "USDC",
+    PricePerRequest: 100,
+})
+
+// Expose metrics endpoint
+http.HandleFunc("/metrics", x402.MetricsHandler(store))
+```
+
+**Query metrics:**
+```bash
+# Get all metrics
+curl "http://localhost:8080/metrics"
+
+# Filter by endpoint and AI agents
+curl "http://localhost:8080/metrics?endpoint=/api/v1&aiOnly=true"
+
+# Filter by time range
+curl "http://localhost:8080/metrics?start=2026-01-01T00:00:00Z&end=2026-01-10T00:00:00Z"
+```
+
+**Metrics include:**
+- Total requests & revenue
+- Requests by hour/day
+- Top endpoints by revenue
+- Top payers
+- AI agent vs human traffic split
+- Average latency & error rates
+
+### 🎟️ Session & Subscription Payments
+
+Let users pay once and make multiple requests:
+
+```go
+// Create session store
+sessionStore := x402.NewInMemorySessionStore()
+
+// Add session middleware
+handler := x402.SessionMiddleware(yourHandler, x402.SessionConfig{
+    Store:             sessionStore,
+    DefaultDuration:   time.Hour,
+    DefaultMaxRequests: 100,
+    Currency:          "USDC",
+})
+
+// Expose session management endpoint
+http.HandleFunc("/sessions", x402.SessionHandler(sessionStore, config))
+```
+
+**Session types:**
+- **Time-based**: Access for a duration (e.g., 1 hour, 24 hours)
+- **Request-based**: Fixed number of API calls (e.g., 100 requests)
+- **Unlimited**: No limits until expiry
+
+**Create a session:**
+```bash
+curl -X POST http://localhost:8080/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payerAddress": "0x123...",
+    "paymentProof": "x402_payment_signature",
+    "sessionType": "requests",
+    "maxRequests": 100
+  }'
+```
+
+**Use the session:**
+```bash
+curl -H "X-Session-ID: sess_abc123" http://localhost:8080/api/resource
+```
+
+**Response headers include:**
+- `X-Session-Remaining: 99 requests`
+- `X-Session-Expires: 2026-01-10T15:00:00Z`
+
+### 🤖 AI Agent Optimized Mode
+
+Special handling for AI agents with budget awareness and batch pricing:
+
+```go
+handler := x402.AIAgentMiddleware(yourHandler, 
+    x402.Config{PricePerRequest: 100, Currency: "USDC"},
+    x402.AIAgentConfig{
+        EnableBudgetAwareness: true,  // Reject if budget exceeded
+        EnableCostEstimation:  true,  // Add cost headers
+        EnableAutoRetryHints:  true,  // Add Retry-After on 402
+        EnableBatchPricing:    true,  // Discount for batches
+        BatchDiscount:         10,    // 10% off for batches
+        MinBatchSize:          5,
+        Currency:              "USDC",
+    },
+)
+
+// Cost estimation endpoint
+http.HandleFunc("/cost", x402.CostEstimateHandler(pricingMap, "USDC"))
+
+// Agent-friendly welcome endpoint
+http.HandleFunc("/", x402.AgentWelcomeHandler(welcomeInfo))
+```
+
+**AI Agent Headers (input):**
+```bash
+curl -H "X-AI-Agent: true" \
+     -H "X-Agent-Budget: 10000" \
+     -H "X-Agent-Task-ID: task_123" \
+     -H "X-Agent-Batch-Size: 10" \
+     http://localhost:8080/api/resource
+```
+
+**Response headers for AI agents:**
+- `X-Estimated-Cost: 100` (before processing)
+- `X-Actual-Cost: 100` (after processing)
+- `X-Remaining-Budget: 9900`
+- `X-Batch-Price-Per-Item: 90` (with batch discount)
+- `X-Recommended-Retry: 5` (on 402 responses)
+- `Retry-After: 5` (standard HTTP retry header)
+
+**Budget exceeded response:**
+```json
+{
+  "estimatedCost": 1000,
+  "costPerRequest": 1000,
+  "batchAvailable": true,
+  "batchDiscount": 10,
+  "retryStrategy": {
+    "shouldRetry": false,
+    "reason": "Agent budget exceeded"
+  },
+  "budgetRecommendation": "Increase budget by at least 900 units"
+}
+```
+
+**Detected AI agents:**
+- OpenAI, Anthropic, Claude user agents
+- LangChain, AutoGPT, AgentGPT, BabyAGI, CrewAI
+- MCP-Client (Model Context Protocol)
+- Any request with `X-AI-Agent: true` or `X-Agent-Budget` headers
 
 ## License
 
