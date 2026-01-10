@@ -9,6 +9,9 @@ import (
 // GenerateToken generates a random token for testing purposes
 func GenerateToken(prefix string) string {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to a fixed string if random fails (should never happen)
+		return prefix + "fallback_token"
+	}
 	return prefix + hex.EncodeToString(bytes)
 }

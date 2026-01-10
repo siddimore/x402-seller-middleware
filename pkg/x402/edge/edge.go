@@ -46,8 +46,8 @@ type PaymentRequiredResponse struct {
 
 // EdgeHandler handles x402 logic at the edge
 type EdgeHandler struct {
-	config    EdgeConfig
-	tokenSet  map[string]struct{}
+	config   EdgeConfig
+	tokenSet map[string]struct{}
 }
 
 // NewEdgeHandler creates a new edge-compatible handler
@@ -187,7 +187,7 @@ func (h *EdgeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(k, v)
 		}
 		w.WriteHeader(http.StatusPaymentRequired)
-		w.Write(h.PaymentRequiredJSON())
+		_, _ = w.Write(h.PaymentRequiredJSON())
 		return
 	}
 
@@ -213,7 +213,7 @@ func (h *EdgeHandler) WrapHandler(next http.Handler) http.Handler {
 				w.Header().Set(k, v)
 			}
 			w.WriteHeader(http.StatusPaymentRequired)
-			w.Write(h.PaymentRequiredJSON())
+			_, _ = w.Write(h.PaymentRequiredJSON())
 			return
 		}
 

@@ -245,5 +245,5 @@ func sendPaymentRequired(w http.ResponseWriter, config Config, r *http.Request) 
 	w.WriteHeader(http.StatusPaymentRequired) // 402
 
 	// Write JSON body (x402 v1 style, also useful for debugging)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }

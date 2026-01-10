@@ -15,28 +15,28 @@ func main() {
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "healthy"}`))
+		_, _ = w.Write([]byte(`{"status": "healthy"}`))
 	})
 
 	// Protected endpoint that requires payment
 	mux.HandleFunc("/api/protected", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Access granted to protected resource"}`))
+		_, _ = w.Write([]byte(`{"message": "Access granted to protected resource"}`))
 	})
 
 	// Another protected endpoint
 	mux.HandleFunc("/api/premium", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Premium content accessed"}`))
+		_, _ = w.Write([]byte(`{"message": "Premium content accessed"}`))
 	})
 
 	// Public endpoint (exempt from payment)
 	mux.HandleFunc("/api/public", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "This is a public endpoint"}`))
+		_, _ = w.Write([]byte(`{"message": "This is a public endpoint"}`))
 	})
 
 	// Configure the X402 middleware

@@ -215,13 +215,13 @@ func createTestHandler() http.Handler {
 
 func testConfig() Config {
 	return Config{
-		PayTo:             "0x1234567890123456789012345678901234567890",
-		PaymentEndpoint:   "https://payment.example.com",
-		AcceptedMethods:   []string{"Bearer"},
-		PricePerRequest:   100,
-		Currency:          "USD",
-		Network:           "base-sepolia",
-		Scheme:            "exact",
-		ExemptPaths:       []string{"/public"},
+		PayTo:           "0x1234567890123456789012345678901234567890",
+		PaymentEndpoint: "https://payment.example.com",
+		AcceptedMethods: []string{"Bearer"},
+		PricePerRequest: 100,
+		Currency:        "USD",
+		Network:         "base-sepolia",
+		Scheme:          "exact",
+		ExemptPaths:     []string{"/public"},
 	}
 }

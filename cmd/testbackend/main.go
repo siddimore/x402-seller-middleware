@@ -14,7 +14,7 @@ func main() {
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "healthy",
 			"server": "test-backend",
 		})
@@ -23,7 +23,7 @@ func main() {
 	// Public endpoint (should be exempt from payment)
 	mux.HandleFunc("/api/public", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"message":   "This is a public endpoint - no payment required!",
 			"timestamp": time.Now().Format(time.RFC3339),
 		})
@@ -36,8 +36,8 @@ func main() {
 		// Check if request came through x402 gateway (will have this header if payment verified)
 		paymentVerified := r.Header.Get("X-Payment-Verified")
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":          "🎉 You accessed protected data!",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"message":          "You accessed protected data!",
 			"payment_verified": paymentVerified,
 			"timestamp":        time.Now().Format(time.RFC3339),
 			"headers_received": getRelevantHeaders(r),
@@ -47,8 +47,8 @@ func main() {
 	// Premium content endpoint
 	mux.HandleFunc("/api/premium", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "💎 Premium content unlocked!",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"message": "Premium content unlocked!",
 			"data": map[string]interface{}{
 				"secret":    "The answer is 42",
 				"premium":   true,
@@ -60,7 +60,7 @@ func main() {
 	// Echo endpoint - useful for debugging
 	mux.HandleFunc("/api/echo", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"method":  r.Method,
 			"path":    r.URL.Path,
 			"query":   r.URL.Query(),
@@ -75,7 +75,7 @@ func main() {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"service": "Test Backend Server",
 			"endpoints": []string{
 				"GET /health     - Health check",

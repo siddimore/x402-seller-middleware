@@ -21,7 +21,7 @@ func main() {
 	price := flag.Int64("price", 100, "Price per request in smallest currency unit")
 	currency := flag.String("currency", "USD", "Currency code")
 	exemptPaths := flag.String("exempt", "/health,/favicon.ico", "Comma-separated exempt paths")
-	
+
 	flag.Parse()
 
 	// Allow environment variable overrides
@@ -47,7 +47,7 @@ func main() {
 
 	// Create reverse proxy
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	
+
 	// Custom director to preserve original host header option
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
@@ -72,6 +72,6 @@ func main() {
 	log.Printf("🔗 Proxying to: %s", *backendURL)
 	log.Printf("💰 Price: %d %s per request", *price, *currency)
 	log.Printf("🔓 Exempt paths: %s", *exemptPaths)
-	
+
 	log.Fatal(http.ListenAndServe(*listenAddr, handler))
 }
