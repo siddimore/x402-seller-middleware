@@ -24,14 +24,28 @@ func TestMiddleware_NoToken(t *testing.T) {
 		t.Errorf("Expected status 402, got %d", resp.StatusCode)
 	}
 
-	// Verify response body
-	var paymentInfo PaymentInfo
-	if err := json.NewDecoder(resp.Body).Decode(&paymentInfo); err != nil {
+	// Verify PAYMENT-REQUIRED header exists (x402 v2)
+	paymentRequiredHeader := resp.Header.Get("PAYMENT-REQUIRED")
+	if paymentRequiredHeader == "" {
+		t.Error("Expected PAYMENT-REQUIRED header")
+	}
+
+	// Verify response body (x402 format)
+	var x402Response PaymentRequiredResponse
+	if err := json.NewDecoder(resp.Body).Decode(&x402Response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if paymentInfo.Amount != 100 {
-		t.Errorf("Expected amount 100, got %d", paymentInfo.Amount)
+	if x402Response.X402Version != X402Version {
+		t.Errorf("Expected x402Version %d, got %d", X402Version, x402Response.X402Version)
+	}
+
+	if len(x402Response.Accepts) == 0 {
+		t.Fatal("Expected at least one payment requirement")
+	}
+
+	if x402Response.Accepts[0].MaxAmountRequired != "100" {
+		t.Errorf("Expected maxAmountRequired '100', got '%s'", x402Response.Accepts[0].MaxAmountRequired)
 	}
 }
 
@@ -128,6 +142,45 @@ func TestMiddleware_QueryParam(t *testing.T) {
 	}
 }
 
+func TestMiddleware_X402PaymentHeader(t *testing.T) {
+	handler := createTestHandler()
+	wrapped := Middleware(handler, testConfig())
+
+	// x402 protocol uses X-PAYMENT header with base64-encoded payment payload
+	// For testing, we just use a simple token that passes the default verifier
+	req := httptest.NewRequest("GET", "/api/protected", nil)
+	req.Header.Set("X-PAYMENT", "valid_x402_payment")
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestMiddleware_PaymentSignatureHeader(t *testing.T) {
+	handler := createTestHandler()
+	wrapped := Middleware(handler, testConfig())
+
+	// x402 v2 protocol uses PAYMENT-SIGNATURE header
+	req := httptest.NewRequest("GET", "/api/protected", nil)
+	req.Header.Set("PAYMENT-SIGNATURE", "valid_signature")
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
 func TestMiddleware_CustomVerifier(t *testing.T) {
 	handler := createTestHandler()
 	config := testConfig()
@@ -162,10 +215,13 @@ func createTestHandler() http.Handler {
 
 func testConfig() Config {
 	return Config{
-		PaymentEndpoint: "https://payment.example.com",
-		AcceptedMethods: []string{"Bearer"},
-		PricePerRequest: 100,
-		Currency:        "USD",
-		ExemptPaths:     []string{"/public"},
+		PayTo:             "0x1234567890123456789012345678901234567890",
+		PaymentEndpoint:   "https://payment.example.com",
+		AcceptedMethods:   []string{"Bearer"},
+		PricePerRequest:   100,
+		Currency:          "USD",
+		Network:           "base-sepolia",
+		Scheme:            "exact",
+		ExemptPaths:       []string{"/public"},
 	}
 }

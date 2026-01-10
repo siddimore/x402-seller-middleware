@@ -66,6 +66,15 @@ func main() {
 	// ========================================
 
 	config := x402.Config{
+		// x402 protocol fields
+		PayTo:             "0x1234567890123456789012345678901234567890", // Your wallet address
+		Scheme:            "exact",
+		Network:           "base-sepolia",
+		Asset:             "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC on Base Sepolia
+		MaxTimeoutSeconds: 60,
+		Description:       "Premium content access",
+		
+		// Payment configuration
 		PaymentEndpoint: *paymentURL,
 		AcceptedMethods: []string{"Bearer", "Token", "X402"},
 		PricePerRequest: *price,
