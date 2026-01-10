@@ -35,7 +35,7 @@ seller-middleware/
 ## Installation
 
 ```bash
-go get github.com/x402/seller-middleware/pkg/x402
+go get github.com/siddimore/x402-seller-middleware/pkg/x402
 ```
 
 ## Usage
@@ -48,7 +48,7 @@ package main
 import (
     "log"
     "net/http"
-    "github.com/x402/seller-middleware/pkg/x402"
+    "github.com/siddimore/x402-seller-middleware/pkg/x402"
 )
 
 func main() {

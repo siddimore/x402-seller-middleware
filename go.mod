@@ -1,3 +1,3 @@
-module github.com/x402/seller-middleware
+module github.com/siddimore/x402-seller-middleware
 
-go 1.21
+go 1.22

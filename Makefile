@@ -1,4 +1,4 @@
-.PHONY: build run test coverage clean lint fmt gateway run-gateway docker-gateway build-gateway-all testbackend run-testbackend test-e2e
+.PHONY: build run test coverage clean lint fmt gateway run-gateway docker-gateway build-gateway-all testbackend run-testbackend test-e2e examples e2e
 
 # Go parameters
 GOCMD=go
@@ -80,9 +80,21 @@ docker-gateway:
 testbackend:
 	$(GOBUILD) -o bin/testbackend ./cmd/testbackend
 
+# Build examples
+examples:
+	$(GOBUILD) -o bin/premium-api ./examples/premium-api
+
 # Run test backend server (port 3000)
 run-testbackend:
 	$(GOCMD) run ./cmd/testbackend
+
+# Run premium-api example (port 8080)
+run-example:
+	$(GOCMD) run ./examples/premium-api
+
+# Run full E2E test suite
+e2e:
+	./scripts/e2e-test.sh
 
 # Run end-to-end test (start backend, gateway, and test)
 # Run these in separate terminals:

@@ -59,7 +59,7 @@ See: `deploy/nginx/nginx.conf`
 Import and use x402 directly in your Go application:
 
 ```go
-import "github.com/x402/seller-middleware/pkg/x402"
+import "github.com/siddimore/x402-seller-middleware/pkg/x402"
 
 handler := x402.Middleware(yourHandler, x402.Config{
     PaymentEndpoint: "https://pay.example.com",
