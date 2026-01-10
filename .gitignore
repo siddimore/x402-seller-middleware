@@ -4,6 +4,15 @@
 *.dll
 *.so
 *.dylib
+bin/
+
+# Built binaries (Go builds without extension on Unix)
+gateway
+x402-*
+testbackend
+
+# Deploy configs (separate repo)
+deploy/
 
 # Test binary, built with `go test -c`
 *.test
