@@ -247,3 +247,146 @@ func sendPaymentRequired(w http.ResponseWriter, config Config, r *http.Request) 
 	// Write JSON body (x402 v1 style, also useful for debugging)
 	_ = json.NewEncoder(w).Encode(response)
 }
+
+// MultiSchemeMiddleware creates a middleware that accepts multiple payment schemes
+// This supports both crypto (EVM, SVM) and future fiat rails (Visa, Stripe)
+func MultiSchemeMiddleware(next http.Handler, config MultiSchemeConfig) http.Handler {
+	// Set default currency if not provided
+	if config.Currency == "" {
+		config.Currency = "USD"
+	}
+
+	registry := config.SchemeRegistry
+	if registry == nil {
+		registry = DefaultRegistry
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if path is exempt from payment
+		if isExemptPath(r.URL.Path, config.ExemptPaths) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Extract payment token from request
+		token := extractPaymentToken(r, config.AcceptedMethods)
+
+		if token == "" {
+			// No payment token provided, return 402 with multi-scheme requirements
+			sendMultiSchemePaymentRequired(w, config, r)
+			return
+		}
+
+		// Parse payment payload to determine scheme
+		payload, err := parsePaymentPayload(token)
+		if err != nil {
+			// Invalid payload format
+			sendMultiSchemePaymentRequired(w, config, r)
+			return
+		}
+
+		// Get the appropriate scheme handler
+		scheme, ok := registry.Get(payload.Scheme)
+		if !ok {
+			// Unsupported scheme, return 402 with supported schemes
+			sendMultiSchemePaymentRequired(w, config, r)
+			return
+		}
+
+		// Build requirements for verification
+		resource := r.URL.Path
+		if r.URL.RawQuery != "" {
+			resource += "?" + r.URL.RawQuery
+		}
+
+		requirements := &PaymentRequirements{
+			Scheme:            string(payload.Scheme),
+			Network:           string(payload.Network),
+			MaxAmountRequired: fmt.Sprintf("%d", config.PricePerRequest),
+			Resource:          resource,
+			PayTo:             config.PayTo,
+			MaxTimeoutSeconds: config.MaxTimeoutSeconds,
+			Asset:             config.Asset,
+		}
+
+		// Verify payment using the scheme handler
+		result, err := scheme.Verify(r.Context(), payload, requirements)
+		if err != nil || !result.Valid {
+			sendMultiSchemePaymentRequired(w, config, r)
+			return
+		}
+
+		// Payment verified, allow access
+		w.Header().Set("X-Payment-Verified", "true")
+		w.Header().Set("X-Payment-Scheme", string(payload.Scheme))
+		w.Header().Set("X-Payment-Network", string(payload.Network))
+		w.Header().Set("X-Payment-Timestamp", fmt.Sprintf("%d", payload.Timestamp))
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// sendMultiSchemePaymentRequired sends a 402 response with all accepted schemes
+func sendMultiSchemePaymentRequired(w http.ResponseWriter, config MultiSchemeConfig, r *http.Request) {
+	// Build resource URL
+	resource := r.URL.Path
+	if r.URL.RawQuery != "" {
+		resource += "?" + r.URL.RawQuery
+	}
+
+	// Generate requirements for all accepted schemes/networks
+	requirements := config.BuildMultiSchemeRequirements(resource)
+
+	// If no multi-scheme config, fall back to single scheme
+	if len(requirements) == 0 {
+		requirements = []PaymentRequirements{{
+			Scheme:            "exact",
+			Network:           "base-sepolia",
+			MaxAmountRequired: fmt.Sprintf("%d", config.PricePerRequest),
+			Resource:          resource,
+			Description:       config.Description,
+			PayTo:             config.PayTo,
+			MaxTimeoutSeconds: 60,
+			Asset:             config.Asset,
+		}}
+	}
+
+	// Build x402 response
+	response := PaymentRequiredResponse{
+		X402Version: X402Version,
+		Accepts:     requirements,
+		Error:       "Payment required - select a supported scheme and network",
+	}
+
+	// Encode response as base64 for PAYMENT-REQUIRED header (v2 protocol)
+	responseJSON, _ := json.Marshal(response)
+	paymentRequiredHeader := base64.StdEncoding.EncodeToString(responseJSON)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("PAYMENT-REQUIRED", paymentRequiredHeader)
+
+	w.WriteHeader(http.StatusPaymentRequired) // 402
+
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// parsePaymentPayload parses a base64-encoded payment payload
+func parsePaymentPayload(token string) (*PaymentPayload, error) {
+	// Try base64 decode first
+	decoded, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		// Try URL-safe base64
+		decoded, err = base64.URLEncoding.DecodeString(token)
+		if err != nil {
+			// Assume it's raw JSON
+			decoded = []byte(token)
+		}
+	}
+
+	var payload PaymentPayload
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		return nil, fmt.Errorf("invalid payment payload: %w", err)
+	}
+
+	return &payload, nil
+}
