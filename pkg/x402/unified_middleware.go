@@ -334,7 +334,10 @@ func sendPaymentOptions(w http.ResponseWriter, r *http.Request, config UnifiedPa
 			}
 			options = append(options, option)
 
-			// Legacy x402 format
+			// Get EIP-712 domain info for this network (helps agents sign directly)
+			domainName, domainVersion, chainID := getEIP712DomainInfo(network)
+
+			// Legacy x402 format with signing hints
 			accepts = append(accepts, PaymentRequirements{
 				Scheme:            config.CryptoScheme,
 				Network:           string(network),
@@ -344,6 +347,12 @@ func sendPaymentOptions(w http.ResponseWriter, r *http.Request, config UnifiedPa
 				PayTo:             config.CryptoPayTo,
 				MaxTimeoutSeconds: 60,
 				Asset:             config.CryptoAsset,
+				Extra: map[string]interface{}{
+					// EIP-712 domain info for direct signing
+					"name":    domainName,
+					"version": domainVersion,
+					"chainId": chainID,
+				},
 			})
 		}
 	}
@@ -657,4 +666,29 @@ func (h *OnboardingHandler) GetPreferences(w http.ResponseWriter, r *http.Reques
 		"hasPreferences": true,
 		"preferences":    prefs,
 	})
+}
+
+// getEIP712DomainInfo returns the EIP-712 domain info for a given network.
+// This helps agents sign payment authorizations directly without calling /prepare.
+func getEIP712DomainInfo(network NetworkType) (name string, version string, chainID int64) {
+	// Handle both CAIP-2 format (eip155:chainId) and simple format (base-sepolia)
+	networkStr := string(network)
+	
+	switch {
+	case networkStr == string(NetworkBaseMainnet) || networkStr == "base":
+		return "USD Coin", "2", 8453
+	case networkStr == string(NetworkBaseSepolia) || networkStr == "base-sepolia":
+		return "USDC", "2", 84532
+	case networkStr == string(NetworkEthereumMainnet) || networkStr == "ethereum":
+		return "USD Coin", "2", 1
+	case networkStr == string(NetworkOptimism) || networkStr == "optimism":
+		return "USD Coin", "2", 10
+	case networkStr == string(NetworkArbitrum) || networkStr == "arbitrum":
+		return "USD Coin", "2", 42161
+	case networkStr == string(NetworkPolygon) || networkStr == "polygon":
+		return "USD Coin", "2", 137
+	default:
+		// Default to Base mainnet values
+		return "USD Coin", "2", 8453
+	}
 }
