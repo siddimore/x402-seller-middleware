@@ -654,6 +654,9 @@ func (e *EVMCryptoRail) VerifyPayment(ctx context.Context, req *VerifyPaymentReq
 
 	jsonBody, _ := json.Marshal(verifyReq)
 
+	// Debug: Log the request we're sending
+	fmt.Printf("[DEBUG] Facilitator request to %s/verify: %s\n", e.FacilitatorURL, string(jsonBody))
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", e.FacilitatorURL+"/verify", strings.NewReader(string(jsonBody)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -668,6 +671,9 @@ func (e *EVMCryptoRail) VerifyPayment(ctx context.Context, req *VerifyPaymentReq
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+
+	// Debug: Log the facilitator response
+	fmt.Printf("[DEBUG] Facilitator response (status %d): %s\n", resp.StatusCode, string(body))
 
 	// The facilitator returns isValid (camelCase), not valid
 	var verifyResp struct {
