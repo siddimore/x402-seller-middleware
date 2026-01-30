@@ -207,9 +207,18 @@ func UnifiedPaymentMiddleware(next http.Handler, config UnifiedPaymentConfig) ht
 
 		// Capture payment if needed
 		if verification.RequiresCapture {
+			// Parse settlement data if present
+			var settlementData map[string]interface{}
+			if verification.SettlementData != "" {
+				settlementData = map[string]interface{}{
+					"json": verification.SettlementData,
+				}
+			}
+
 			capture, err := rail.CapturePayment(r.Context(), &CapturePaymentRequest{
-				PaymentID: verification.PaymentID,
-				Amount:    config.PricePerRequest,
+				PaymentID:      verification.PaymentID,
+				Amount:         config.PricePerRequest,
+				SettlementData: settlementData,
 			})
 
 			if err != nil || !capture.Success {

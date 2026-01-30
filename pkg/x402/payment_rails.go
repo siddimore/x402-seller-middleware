@@ -169,7 +169,8 @@ type PaymentVerification struct {
 	Payer     string `json:"payer,omitempty"` // Address or customer ID
 
 	// For capture
-	RequiresCapture bool `json:"requiresCapture"`
+	RequiresCapture bool   `json:"requiresCapture"`
+	SettlementData  string `json:"settlementData,omitempty"` // JSON data needed for settlement
 
 	// Timestamps
 	VerifiedAt time.Time `json:"verifiedAt"`
@@ -695,6 +696,14 @@ func (e *EVMCryptoRail) VerifyPayment(ctx context.Context, req *VerifyPaymentReq
 		message = verifyResp.Error
 	}
 
+	// Store the full payment data for settlement
+	settlementData := map[string]interface{}{
+		"paymentPayload":      paymentPayload,
+		"paymentRequirements": paymentRequirements,
+		"x402Version":         x402Version,
+	}
+	settlementJSON, _ := json.Marshal(settlementData)
+
 	return &PaymentVerification{
 		Valid:           verifyResp.IsValid,
 		Message:         message,
@@ -702,19 +711,41 @@ func (e *EVMCryptoRail) VerifyPayment(ctx context.Context, req *VerifyPaymentReq
 		Amount:          req.ExpectedAmount,
 		Currency:        req.ExpectedCurrency,
 		Payer:           verifyResp.Payer,
-		RequiresCapture: false, // Skip settlement for now - signature verification is enough
+		RequiresCapture: true, // Enable on-chain settlement
+		SettlementData:  string(settlementJSON),
 		VerifiedAt:      time.Now(),
 	}, nil
 }
 
 func (e *EVMCryptoRail) CapturePayment(ctx context.Context, req *CapturePaymentRequest) (*PaymentCapture, error) {
-	// Call facilitator to settle the payment on-chain
-	settleReq := map[string]interface{}{
-		"paymentId":      req.PaymentID,
-		"settlementData": req.SettlementData,
+	// The facilitator expects the same format as verify, but at /settle endpoint
+	// Parse the settlement data we stored during verification
+	var settlementData map[string]interface{}
+	if data, ok := req.SettlementData["json"]; ok {
+		if jsonStr, ok := data.(string); ok {
+			if err := json.Unmarshal([]byte(jsonStr), &settlementData); err != nil {
+				return nil, fmt.Errorf("failed to parse settlement data: %w", err)
+			}
+		}
+	}
+
+	// If we have pre-parsed settlement data, use it; otherwise build from scratch
+	var settleReq map[string]interface{}
+	if settlementData != nil {
+		settleReq = settlementData
+	} else {
+		// Fallback: reconstruct from request
+		settleReq = map[string]interface{}{
+			"paymentId":      req.PaymentID,
+			"settlementData": req.SettlementData,
+		}
 	}
 
 	jsonBody, _ := json.Marshal(settleReq)
+
+	// Debug: Log the settle request
+	fmt.Printf("[DEBUG] Facilitator settle request to %s/settle: %s\n", e.FacilitatorURL, string(jsonBody))
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", e.FacilitatorURL+"/settle", strings.NewReader(string(jsonBody)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -730,23 +761,35 @@ func (e *EVMCryptoRail) CapturePayment(ctx context.Context, req *CapturePaymentR
 
 	body, _ := io.ReadAll(resp.Body)
 
+	// Debug: Log the response
+	fmt.Printf("[DEBUG] Facilitator settle response (status %d): %s\n", resp.StatusCode, string(body))
+
 	var settleResp struct {
 		Success       bool   `json:"success"`
-		TransactionID string `json:"transactionId"`
+		TransactionID string `json:"transaction"` // Note: facilitator uses "transaction" not "transactionId"
 		BlockNumber   uint64 `json:"blockNumber"`
+		Network       string `json:"network"`
+		Payer         string `json:"payer"`
 	}
 
 	if err := json.Unmarshal(body, &settleResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Build explorer URL
+	txURL := ""
+	if settleResp.TransactionID != "" {
+		txURL = fmt.Sprintf("https://sepolia.basescan.org/tx/%s", settleResp.TransactionID)
+	}
+
 	return &PaymentCapture{
-		Success:       settleResp.Success,
-		TransactionID: settleResp.TransactionID,
-		GrossAmount:   req.Amount,
-		NetAmount:     req.Amount, // No fees for on-chain settlement (gas paid separately)
-		FeeAmount:     0,
-		CapturedAt:    time.Now(),
+		Success:        settleResp.Success,
+		TransactionID:  settleResp.TransactionID,
+		TransactionURL: txURL,
+		GrossAmount:    req.Amount,
+		NetAmount:      req.Amount, // No fees for on-chain settlement (gas paid separately)
+		FeeAmount:      0,
+		CapturedAt:     time.Now(),
 	}, nil
 }
 
