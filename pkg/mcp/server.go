@@ -534,7 +534,7 @@ func (s *Server) handleCall(ctx context.Context, args map[string]interface{}) (*
 	result += fmt.Sprintf("- **Amount**: %d %s\n", cost, budget.Currency)
 	result += fmt.Sprintf("- **Remaining Budget**: %d %s\n", budget.Remaining, budget.Currency)
 	result += "\n---\n\n"
-	result += "⚠️ **Note**: In production, this would make the actual paid API call and return the response.\n"
+	result += "In production, this would make the actual paid API call and return the response.\n"
 	result += "Payment signing requires wallet integration."
 
 	return textResult(result), nil
@@ -563,7 +563,7 @@ func (s *Server) handleBudget(ctx context.Context, args map[string]interface{}) 
 		s.mu.Unlock()
 
 		return textResult(fmt.Sprintf(
-			"✅ Budget created!\n\n- **Total**: %d %s\n- **Available**: %d %s\n\nYou can now use `x402_call` to make paid API requests.",
+			"Budget created!\n\n- **Total**: %d %s\n- **Available**: %d %s\n\nYou can now use `x402_call` to make paid API requests.",
 			amount, s.config.Currency, amount, s.config.Currency,
 		)), nil
 
@@ -610,7 +610,7 @@ func (s *Server) handleBudget(ctx context.Context, args map[string]interface{}) 
 		s.mu.Unlock()
 
 		return textResult(fmt.Sprintf(
-			"✅ Budget topped up!\n\n- **Added**: %d %s\n- **New Total**: %d %s\n- **Available**: %d %s",
+			"Budget topped up!\n\n- **Added**: %d %s\n- **New Total**: %d %s\n- **Available**: %d %s",
 			amount, s.config.Currency,
 			budget.Total, budget.Currency,
 			budget.Remaining, budget.Currency,
@@ -627,7 +627,7 @@ func (s *Server) handleBudget(ctx context.Context, args map[string]interface{}) 
 		}
 
 		return textResult(fmt.Sprintf(
-			"✅ Budget closed!\n\n- **Total Spent**: %d %s\n- **Refunded**: %d %s\n- **Transactions**: %d",
+			"Budget closed!\n\n- **Total Spent**: %d %s\n- **Refunded**: %d %s\n- **Transactions**: %d",
 			budget.Spent, budget.Currency,
 			budget.Remaining, budget.Currency,
 			len(budget.Transactions),
@@ -702,9 +702,9 @@ func (s *Server) handleHistory(ctx context.Context, args map[string]interface{})
 
 	for i := len(budget.Transactions) - 1; i >= start; i-- {
 		tx := budget.Transactions[i]
-		status := "✅"
+		status := "success"
 		if !tx.Success {
-			status = "❌"
+			status = "failed"
 		}
 		result += fmt.Sprintf("| %s | %s | %d %s | %s |\n",
 			tx.Timestamp.Format("15:04:05"),
@@ -876,7 +876,7 @@ func textResult(text string) *ToolResult {
 
 func errorResult(message string) *ToolResult {
 	return &ToolResult{
-		Content: []ContentBlock{{Type: "text", Text: "❌ Error: " + message}},
+		Content: []ContentBlock{{Type: "text", Text: "Error: " + message}},
 		IsError: true,
 	}
 }
